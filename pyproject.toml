@@ -1,0 +1,48 @@
+[project]
+name = "warren-ann"
+version = "0.1.0"
+description = "A from-scratch HNSW approximate-nearest-neighbor index in pure Python + NumPy, with measured recall."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Hritik Datta", email = "hritikdatta2403@gmail.com" }]
+keywords = [
+    "hnsw", "ann", "approximate-nearest-neighbor", "vector-search",
+    "vector-database", "embeddings", "rag", "retrieval", "knn", "numpy",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Operating System :: OS Independent",
+]
+dependencies = ["numpy>=1.23"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4", "ruff>=0.1"]
+
+[project.urls]
+Homepage = "https://github.com/Hritikd/warren"
+Repository = "https://github.com/Hritikd/warren"
+Issues = "https://github.com/Hritikd/warren/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/warren"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
