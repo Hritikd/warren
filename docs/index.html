@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>warren — live demo · HNSW vector search in your browser</title>
+<meta name="description" content="Interactive demo of warren: a from-scratch HNSW approximate-nearest-neighbor index. Move your cursor to query; see recall vs exact search live. Runs real Python (NumPy) via Pyodide." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%95%B3%EF%B8%8F%3C/text%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0a0a0c; --panel:#141418; --panel2:#1b1b22; --line:#2a2a33;
+    --text:#e7e7ea; --muted:#9a9aa7; --accent:#818cf8; --accent2:#6366f1;
+    --exact:#38bdf8; --hit:#818cf8; --radius:14px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  .wrap{max-width:1000px;margin:0 auto;padding:32px 20px 80px}
+  header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  h1{font-size:1.9rem;font-weight:800;margin:0;letter-spacing:-.02em} h1 .em{color:var(--accent)}
+  .sub{color:var(--muted);margin:6px 0 0;max-width:700px}
+  .links{font-size:.92rem;font-weight:600}
+  .pill{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:3px 10px;margin-top:14px}
+  .grid{display:grid;grid-template-columns:300px 1fr;gap:18px;margin-top:24px}
+  @media(max-width:820px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px}
+  label{display:block;font-size:.78rem;font-weight:600;color:var(--muted);margin:0 0 6px;text-transform:uppercase;letter-spacing:.04em}
+  .ctl{margin-bottom:18px}
+  .val{font-family:'JetBrains Mono',monospace;color:var(--accent);font-weight:500}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  button{width:100%;background:var(--accent);color:#0a0a18;border:none;border-radius:10px;padding:11px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif}
+  button:disabled{opacity:.5;cursor:wait} button:hover:not(:disabled){background:var(--accent2)}
+  canvas{width:100%;height:auto;display:block;background:var(--panel2);border:1px solid var(--line);border-radius:12px;cursor:crosshair;touch-action:none}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+  .stat{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:11px;text-align:center}
+  .stat .n{font-family:'JetBrains Mono',monospace;font-size:1.25rem;font-weight:600;color:var(--accent)}
+  .stat .l{font-size:.66rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-top:3px}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;font-size:.8rem;color:var(--muted);margin-top:12px}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+  .note{color:var(--muted);font-size:.82rem;margin-top:28px;border-top:1px solid var(--line);padding-top:18px}
+  .spin{display:inline-block;width:13px;height:13px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:s .7s linear infinite;vertical-align:-2px;margin-right:7px}
+  @keyframes s{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>🕳️ <span class="em">warren</span> — live demo</h1>
+      <p class="sub">A from-scratch <b>HNSW</b> approximate-nearest-neighbor index — the algorithm behind vector databases. Move your cursor over the field to query the index; warren returns its nearest neighbors and we compare them to exact search, live. This runs the <b>real Python library</b> (with NumPy) in your browser via Pyodide.</p>
+    </div>
+    <div class="links"><a href="https://github.com/Hritikd/warren">GitHub ↗</a></div>
+  </header>
+  <span class="pill" id="engine"><span class="spin"></span>booting Python runtime &amp; NumPy…</span>
+
+  <div class="grid">
+    <div class="card">
+      <div class="ctl">
+        <label>Points in index · <span class="val" id="nVal">600</span></label>
+        <input type="range" id="n" min="200" max="1500" value="600" step="100" />
+      </div>
+      <div class="ctl">
+        <label>ef_search · <span class="val" id="efVal">40</span></label>
+        <input type="range" id="ef" min="10" max="120" value="40" step="5" />
+      </div>
+      <div class="ctl">
+        <label>k (neighbors) · <span class="val" id="kVal">10</span></label>
+        <input type="range" id="k" min="3" max="25" value="10" step="1" />
+      </div>
+      <button id="build" disabled>Rebuild index</button>
+      <div class="stats">
+        <div class="stat"><div class="n" id="sRecall">—</div><div class="l">recall@k</div></div>
+        <div class="stat"><div class="n" id="sScan">—</div><div class="l">DB scanned</div></div>
+        <div class="stat"><div class="n" id="sLat">—</div><div class="l">query</div></div>
+      </div>
+      <div class="legend">
+        <span><i style="background:#55556a"></i>points</span>
+        <span><i style="background:var(--exact)"></i>exact k-NN</span>
+        <span><i style="background:var(--hit)"></i>warren k-NN</span>
+      </div>
+    </div>
+    <div class="card">
+      <canvas id="cv" width="640" height="460"></canvas>
+    </div>
+  </div>
+
+  <p class="note">Gray dots are the indexed vectors. As you move the cursor (the query), <b style="color:var(--exact)">blue rings</b> mark the true nearest neighbors from exact brute-force search and <b style="color:var(--hit)">filled dots</b> mark what warren's HNSW returns — when they coincide, recall is 100%. "DB scanned" is the fraction of vectors whose distance warren actually computed, the sublinear-search win. Python fetched verbatim from <a href="https://github.com/Hritikd/warren/tree/main/src/warren">src/warren</a>.</p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
+<script>
+const WARREN_FILES = ["__init__","distance","bruteforce","hnsw","io"];
+const $ = (id)=>document.getElementById(id);
+const cv = $("cv"), ctx = cv.getContext("2d");
+let pts=[], bounds=null, buildFn=null, queryFn=null, ready=false, lastQ=null;
+
+["n","ef","k"].forEach(id=>{$(id).oninput=()=>{$(id+"Val").textContent=$(id).value; if(id==="n") {} };});
+$("ef").oninput=()=>{$("efVal").textContent=$("ef").value; if(lastQ) doQuery(lastQ.x,lastQ.y);};
+$("k").oninput=()=>{$("kVal").textContent=$("k").value; if(lastQ) doQuery(lastQ.x,lastQ.y);};
+
+function toPx(p){
+  const W=cv.width,H=cv.height,pad=24;
+  const x=pad+(p[0]-bounds.minx)/(bounds.maxx-bounds.minx)*(W-2*pad);
+  const y=pad+(p[1]-bounds.miny)/(bounds.maxy-bounds.miny)*(H-2*pad);
+  return [x,y];
+}
+function toData(px,py){
+  const W=cv.width,H=cv.height,pad=24;
+  const x=bounds.minx+(px-pad)/(W-2*pad)*(bounds.maxx-bounds.minx);
+  const y=bounds.miny+(py-pad)/(H-2*pad)*(bounds.maxy-bounds.miny);
+  return [x,y];
+}
+function draw(res){
+  ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.fillStyle="#55556a";
+  for(const p of pts){const[x,y]=toPx(p);ctx.beginPath();ctx.arc(x,y,2,0,7);ctx.fill();}
+  if(res){
+    const ex=new Set(res.exact), hit=new Set(res.ann);
+    ctx.lineWidth=2;
+    for(const i of ex){const[x,y]=toPx(pts[i]);ctx.strokeStyle="#38bdf8";ctx.beginPath();ctx.arc(x,y,7,0,7);ctx.stroke();}
+    for(const i of hit){const[x,y]=toPx(pts[i]);ctx.fillStyle="#818cf8";ctx.beginPath();ctx.arc(x,y,4,0,7);ctx.fill();}
+  }
+  if(lastQ){const[x,y]=toPx([lastQ.x,lastQ.y]);ctx.strokeStyle="#e7e7ea";ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(x-7,y);ctx.lineTo(x+7,y);ctx.moveTo(x,y-7);ctx.lineTo(x,y+7);ctx.stroke();}
+}
+function doQuery(dx,dy){
+  if(!ready) return;
+  lastQ={x:dx,y:dy};
+  const res=JSON.parse(queryFn(dx,dy,parseInt($("k").value),parseInt($("ef").value)));
+  $("sRecall").textContent=Math.round(res.recall*100)+"%";
+  $("sScan").textContent=(100*res.scanned/res.n).toFixed(1)+"%";
+  $("sLat").textContent=res.ms.toFixed(2)+" ms";
+  draw(res);
+}
+cv.addEventListener("mousemove",e=>{const r=cv.getBoundingClientRect();
+  const px=(e.clientX-r.left)*cv.width/r.width, py=(e.clientY-r.top)*cv.height/r.height;
+  const[dx,dy]=toData(px,py); doQuery(dx,dy);});
+
+async function rebuild(){
+  if(!buildFn) return;
+  $("build").disabled=true; $("engine").innerHTML='<span class="spin"></span>building index…';
+  const out=JSON.parse(buildFn(parseInt($("n").value)));
+  pts=out.pts; bounds=out.bounds;
+  $("engine").innerHTML="⚡ runtime ready — move your cursor over the field to query";
+  $("build").disabled=false;
+  // seed a query in the middle
+  doQuery((bounds.minx+bounds.maxx)/2,(bounds.miny+bounds.maxy)/2);
+}
+$("build").onclick=rebuild;
+
+async function boot(){
+  try{
+    const pyodide=await loadPyodide();
+    await pyodide.loadPackage("numpy");
+    pyodide.FS.mkdir("warren");
+    for(const f of WARREN_FILES){
+      const src=await (await fetch(`./pysrc/warren/${f}.py`)).text();
+      pyodide.FS.writeFile(`warren/${f}.py`,src);
+    }
+    pyodide.runPython(`
+import sys, json, time
+sys.path.insert(0,'')
+import numpy as np
+from warren import HNSW, BruteForceIndex
+
+_state = {}
+
+def _build(n):
+    rng = np.random.default_rng(0)
+    centers = rng.normal(0, 1, size=(6, 2)).astype('float32')
+    a = rng.integers(0, 6, size=n)
+    pts = (centers[a] + rng.normal(0, 0.22, size=(n, 2))).astype('float32')
+    ann = HNSW(2, metric='l2', m=8, ef_construction=100, seed=0)
+    ann.add(pts, list(range(n)))
+    ex = BruteForceIndex(2, 'l2'); ex.add(pts, list(range(n)))
+    _state.update(pts=pts, ann=ann, ex=ex)
+    xs, ys = pts[:,0], pts[:,1]
+    return json.dumps(dict(pts=pts.tolist(),
+        bounds=dict(minx=float(xs.min()), maxx=float(xs.max()),
+                    miny=float(ys.min()), maxy=float(ys.max()))))
+
+def _query(x, y, k, ef):
+    q = np.array([x, y], dtype='float32')
+    ann = _state['ann']; ex = _state['ex']
+    ann.dist_calls = 0
+    t = time.perf_counter()
+    got = [i for i, _ in ann.search(q, k, ef=ef)]
+    ms = (time.perf_counter() - t) * 1000
+    truth = [i for i, _ in ex.search(q, k)]
+    recall = len(set(got) & set(truth)) / k
+    return json.dumps(dict(ann=got, exact=truth, recall=recall,
+                           scanned=ann.dist_calls, n=len(_state['pts']), ms=ms))
+`);
+    buildFn=pyodide.globals.get("_build");
+    queryFn=pyodide.globals.get("_query");
+    ready=true;
+    await rebuild();
+  }catch(e){
+    $("engine").innerHTML="⚠️ failed to start runtime: "+e.message;
+  }
+}
+boot();
+</script>
+</body>
+</html>
