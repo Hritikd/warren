@@ -13,6 +13,10 @@
   <img alt="recall@10: 0.99+" src="https://img.shields.io/badge/recall@10-0.99%2B-success.svg" />
 </p>
 
+<p align="center">
+  <b><a href="https://hritikd.github.io/warren/">▶ Try the live demo</a></b> — move your cursor to query an HNSW index in your browser; watch recall vs exact search update live.
+</p>
+
 ---
 
 ## The problem
